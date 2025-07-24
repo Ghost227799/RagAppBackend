@@ -15,9 +15,7 @@ This is the backend for a RAG (Retrieval-Augmented Generation) web application. 
 - Node.js + TypeScript
 - Express.js
 - ChromaDB (Vector DB)
-- Google OAuth 2.0
-- Firestore (or Cloud SQL)
-- Docker + Cloud Run (GCP)
+- Docker + Cloud Run
 
 ---
 
