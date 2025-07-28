@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc",
     "start": "ts-node ./src/main.ts",
-    "dev": "ts-node ./src/main.ts"
+    "dev": "ts-node ./src/main.ts",
+    "create-vector-index": "ts-node ./src/scripts/createVectorIndex.ts"
   },
   "keywords": [],
   "author": "",
@@ -23,11 +24,10 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@chroma-core/default-embed": "^0.1.8",
+    "@google/generative-ai": "^0.24.1",
     "@types/axios": "^0.9.36",
     "axios": "^1.11.0",
     "bcrypt": "^6.0.0",
-    "chromadb": "^3.0.9",
     "cors": "^2.8.5",
     "dotenv": "^17.2.0",
     "express": "^5.1.0",

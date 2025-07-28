@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
 import User from "../models/User";
+import DocumentModel from "../models/Document";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import ChromaService from "../helpers/ChromaDb";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
@@ -29,13 +29,19 @@ export async function login(req: Request, res: Response) {
 export async function logout(req: Request, res: Response) {
   try {
     const userId = (req as any).user;
-    await ChromaService.collection?.delete({
-      where: { userId:userId }
+    
+    // Delete all documents associated with this user from MongoDB
+    const deleteResult = await DocumentModel.deleteMany({ userId });
+    
+    console.log(`Deleted ${deleteResult.deletedCount} documents for user ${userId}`);
+    
+    res.json({ 
+      message: "Logged out successfully", 
+      documentsDeleted: deleteResult.deletedCount 
     });
-    res.json({ message: "Logged out and user vectors deleted from ChromaDB" });
   } catch (error) {
-    console.error("Error deleting user vectors on logout:", error);
-    res.status(500).json({ message: "Logout failed, could not delete user vectors" });
+    console.error("Error deleting user documents on logout:", error);
+    res.status(500).json({ message: "Logout failed, could not delete user documents" });
   }
 }
 

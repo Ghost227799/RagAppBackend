@@ -1,43 +1,32 @@
-import { OpenAI } from "openai";
-import ChromaService from "../helpers/ChromaDb";
+import {
+  GoogleGenerativeAI,
+  HarmCategory,
+  HarmBlockThreshold,
+} from "@google/generative-ai";
+import DocumentModel from "../models/Document";
 import fs from "fs";
 import pdfParse from "pdf-parse";
-// New storeDocument function supporting all file types and Tika
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+
 export async function storeDocument(
   id: string,
   text: string,
   userId: string
 ): Promise<void> {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+  const model = genAI.getGenerativeModel({ model: "embedding-001" });
+  const result = await model.embedContent(text);
+  const embedding = result.embedding.values;
 
-  if (!ChromaService.isReady() || !ChromaService.collection) {
-    throw new Error("ChromaDB is not ready");
-  }
-
-  const embeddingResponse = await openai.embeddings.create({
-    model: "text-embedding-ada-002",
-    input: text,
+  const document = new DocumentModel({
+    id,
+    text,
+    userId,
+    embedding,
   });
 
-  const embedding = embeddingResponse.data[0].embedding;
-
-  await ChromaService.collection.add({
-    ids: [id],
-    embeddings: [embedding],
-    metadatas: [{ text, userId }],
-  });
-
+  await document.save();
   console.log(`Stored document: ${id}`);
-}
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
-
-/**
- * ChromaDB connection is now managed by the singleton in src/helpers/ChromaDb.ts.
- * Use ChromaService.collection, ChromaService.initChroma(), and ChromaService.isReady() as needed.
- */
-export async function initChroma() {
-  await ChromaService.initChroma();
 }
 
 export async function extractTextFromPDF(filePath: string): Promise<string> {
@@ -46,41 +35,99 @@ export async function extractTextFromPDF(filePath: string): Promise<string> {
   return data.text;
 }
 
+export async function getRelevantDocs(
+  query: string,
+  userId: string
+): Promise<string[]> {
+  try {
+    // Generate embedding for the query using Gemini
+    const model = genAI.getGenerativeModel({ model: "embedding-001" });
+    const result = await model.embedContent(query);
+    const queryEmbedding = result.embedding.values;
 
-export async function getRelevantDocs(query: string, userId: string): Promise<string[]> {
-  const embeddingResponse = await openai.embeddings.create({
-    model: "text-embedding-ada-002",
-    input: query,
-  });
+    // First approach: Try using $vectorSearch if the index exists
+    try {
+      const documents = await DocumentModel.aggregate([
+        {
+          $vectorSearch: {
+            index: "embedding_index",
+            path: "embedding",
+            queryVector: queryEmbedding,
+            numCandidates: 100,
+            limit: 5,
+          },
+        },
+        {
+          $match: {
+            userId: userId,
+          },
+        },
+        {
+          $project: {
+            text: 1,
+            score: { $meta: "vectorSearchScore" },
+            _id: 0,
+          },
+        },
+      ]);
 
-  const queryEmbedding = embeddingResponse.data[0].embedding;
-  const userIdFilter = {
-    userId: userId
-  };
-  if (!ChromaService.isReady() || !ChromaService.collection) {
-    throw new Error("ChromaDB is not ready");
+      if (documents && documents.length > 0) {
+        console.log(`Found ${documents.length} documents using $vectorSearch`);
+        return documents.map((doc) => doc.text);
+      }
+    } catch (error: any) {
+      console.warn("Vector search failed, falling back to alternative method:", error.message || "Unknown error");
+    }
+
+    // Fallback approach: If $vectorSearch fails or returns no results, use a simpler query
+    // This is less efficient but more reliable if vector search isn't properly set up
+    const allUserDocs = await DocumentModel.find({ userId }).limit(20).lean();
+    
+    if (!allUserDocs || allUserDocs.length === 0) {
+      console.log("No documents found for user");
+      return [];
+    }
+    
+    console.log(`Found ${allUserDocs.length} documents using fallback method`);
+    
+    // Simple relevance sorting based on text content (not as good as vector search)
+    // In a production app, you might want to implement a more sophisticated fallback
+    const scoredDocs = allUserDocs.map(doc => ({
+      text: doc.text,
+      // Simple text matching score (very basic)
+      score: (doc.text.toLowerCase().includes(query.toLowerCase())) ? 1 : 0
+    }));
+    
+    // Sort by our basic score and take top 5
+    const sortedDocs = scoredDocs.sort((a, b) => b.score - a.score).slice(0, 5);
+    
+    return sortedDocs.map(doc => doc.text);
+  } catch (error) {
+    console.error("Error in getRelevantDocs:", error);
+    return [];
   }
-  const results = await ChromaService.collection.query({
-    queryEmbeddings: [queryEmbedding],
-    nResults: 3,
-    where: userIdFilter
-  });
-
-  return results.metadatas.flat().map((doc: any) => String(doc?.text ?? ""));
 }
 
-export async function generateResponse(query: string, userId: string): Promise<string> {
+export async function generateResponse(
+  query: string,
+  userId: string
+): Promise<string> {
   const docs = await getRelevantDocs(query, userId);
-  const context = docs.join("\n");
+  console.log("DOCS  :: ",JSON.stringify(docs))
+  const context = docs.join("\n\n");
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: "You are an intelligent assistant." },
-      { role: "user", content: `Context: ${context}` },
-      { role: "user", content: `Query: ${query}` },
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-flash",
+    safetySettings: [
+      {
+        category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+        threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+      },
     ],
   });
 
-  return response.choices[0].message.content ?? "No response generated";
+  const prompt = `Context: ${context}\n\nQuery: ${query}`;
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  return response.text();
 }

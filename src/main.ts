@@ -4,7 +4,7 @@ import cors from "cors";
 import mongoose from "mongoose";
 import ragRoutes from "./routes/ragRoutes";
 import authRoutes from "./routes/authRoutes";
-import { initChroma } from "./services/ragService";
+import MongoService from "./helpers/MongoDb";
 
 const app = express();
 app.use(express.json());
@@ -15,16 +15,11 @@ app.use("/rag", ragRoutes);
 
 const PORT = 3000;
 
-mongoose
-  .connect(process.env.MONGO_CONN_STRING!)
-  .then(() => {
-    console.log("Connected to MongoDB");
-    return initChroma();
-  })
+MongoService.connect(process.env.MONGO_CONN_STRING!)
   .then(() => {
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   })
   .catch((err) => {
-    console.error("Failed to connect to MongoDB", err);
+    console.error("Failed to connect to the database", err);
     process.exit(1);
   });
