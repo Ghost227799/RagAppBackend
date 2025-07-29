@@ -10,6 +10,9 @@ const app = express();
 app.use(express.json());
 const allowedOrigins = [
   "https://rag-app-front-2j30nmfus-shaunaks-projects-a027fef1.vercel.app",
+  "https://rag-app-front-end.vercel.app/",
+  "https://rag-app-front-end-shaunaks-projects-a027fef1.vercel.app/",
+  "https://rag-app-front-end-git-main-shaunaks-projects-a027fef1.vercel.app/",
   "http://localhost:5173",
 ];
 
