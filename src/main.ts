@@ -1,10 +1,10 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import mongoose from "mongoose";
 import ragRoutes from "./routes/ragRoutes";
 import authRoutes from "./routes/authRoutes";
 import MongoService from "./helpers/MongoDb";
+import healthRoutes from "./routes/healthRoutes";
 
 const app = express();
 app.use(express.json());
@@ -12,12 +12,26 @@ const allowedOrigins = [
   "https://rag-app-front-2j30nmfus-shaunaks-projects-a027fef1.vercel.app",
   "http://localhost:5173",
 ];
+
+// app.use(cors({
+//   origin: function (origin, callback) {
+//     if (!origin || allowedOrigins.includes(origin)) {
+//       callback(null, true);
+//     } else {
+//       callback(new Error("Not allowed by CORS: " + origin));
+//     }
+//   },
+//   credentials: true,
+// }));
+
 app.use(cors({
-  origin: allowedOrigins,
-  credentials: true,
+  origin: '*',
+  credentials: true
 }));
+
 app.use("/auth", authRoutes);
 app.use("/rag", ragRoutes);
+app.use('/', healthRoutes);
 
 const PORT = 3000;
 
