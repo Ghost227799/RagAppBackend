@@ -9,7 +9,7 @@ import MongoService from "./helpers/MongoDb";
 const app = express();
 app.use(express.json());
 const allowedOrigins = [
-  "https://ragappfrontend.onrender.com",
+  "https://rag-app-front-2j30nmfus-shaunaks-projects-a027fef1.vercel.app/",
   "http://localhost:5173",
 ];
 app.use(cors({
