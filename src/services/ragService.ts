@@ -113,7 +113,6 @@ export async function generateResponse(
   userId: string
 ): Promise<string> {
   const docs = await getRelevantDocs(query, userId);
-  console.log("DOCS  :: ",JSON.stringify(docs))
   const context = docs.join("\n\n");
 
   const model = genAI.getGenerativeModel({
