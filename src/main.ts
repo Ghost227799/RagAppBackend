@@ -8,8 +8,14 @@ import MongoService from "./helpers/MongoDb";
 
 const app = express();
 app.use(express.json());
-app.use(cors({ origin: "http://localhost:5173", credentials: true }));
-
+const allowedOrigins = [
+  "https://ragappfrontend.onrender.com",
+  "http://localhost:5173",
+];
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,
+}));
 app.use("/auth", authRoutes);
 app.use("/rag", ragRoutes);
 
