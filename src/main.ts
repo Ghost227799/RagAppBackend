@@ -13,21 +13,20 @@ const allowedOrigins = [
   "http://localhost:5173",
 ];
 
-// app.use(cors({
-//   origin: function (origin, callback) {
-//     if (!origin || allowedOrigins.includes(origin)) {
-//       callback(null, true);
-//     } else {
-//       callback(new Error("Not allowed by CORS: " + origin));
-//     }
-//   },
-//   credentials: true,
-// }));
-
 app.use(cors({
-  origin: '*',
-  credentials: true
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS: " + origin));
+    }
+  },
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  exposedHeaders: ['Content-Length', 'X-Request-Id']
 }));
+
 
 app.use("/auth", authRoutes);
 app.use("/rag", ragRoutes);
